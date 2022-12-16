@@ -9,12 +9,12 @@ Players: %d/%d
 %s
 ]]
 
-local function read_varint(socket)
+local function read_varint(client)
   local value = 0
   local shift = 0
   local byte = 0x80
   while byte >= 0x80 do
-    byte = socket:receive(1):byte()
+    byte = client:receive(1):byte()
     value = value + bit32.lshift(bit32.band(byte, 0x7f), shift)
     shift = shift + 7
   end
@@ -40,7 +40,10 @@ local function ping()
   sock:send(table.concat(handshake))
   sock:send(string.char(0x01, 0x00)) -- status request
 
-  local size = read_varint(sock)
+  -- this pcall is ugly, wish I could check if the request failed some other way
+  local ok, size = pcall(read_varint, sock)
+  if not ok then return end
+
   local data = sock:receive(size):sub(4) -- remove packet id, str length
 
   sock:close()
@@ -49,8 +52,6 @@ local function ping()
 end
 
 local function handle_client(client)
-  client:settimeout(1)
-
   local method, uri, version = client:receive():match("(%u+)%s([%p%w]+)%s(HTTP/1.1)")
 
   -- ignore headers
@@ -58,22 +59,27 @@ local function handle_client(client)
 
   if method == "GET" and uri == "/" then
     local status = ping()
+    local body = ""
 
-    local players = {}
+    if status then
+      local players = {}
 
-    if status.players.sample then
-      for _, player in ipairs(status.players.sample) do
-        table.insert(players, "  - " .. player.name)
+      if status.players.sample then
+        for _, player in ipairs(status.players.sample) do
+          table.insert(players, "  - " .. player.name)
+        end
       end
-    end
 
-    local body = format:format(
-      status.version.name,
-      status.description.text,
-      status.players.online,
-      status.players.max,
-      table.concat(players, "\n")
-    )
+      body = format:format(
+        status.version.name,
+        status.description.text,
+        status.players.online,
+        status.players.max,
+        table.concat(players, "\n")
+      )
+    else
+      body = "Server is offline!\n"
+    end
 
     local response = {
       "HTTP/1.1 200 OK",
@@ -85,8 +91,17 @@ local function handle_client(client)
     }
 
     client:send(table.concat(response, "\r\n"))
+  else
+    client:send("HTTP/1.1 404 Not Found\r\n\r\n")
   end
+end
 
+local function handle_coroutine(client)
+  client:settimeout(1)
+  local ok, err = pcall(handle_client, client)
+  if not ok then 
+    client:send("HTTP/1.1 500 Internal Server Error\r\n\r\n")
+  end
   client:close()
 end
 
@@ -94,8 +109,7 @@ local server = socket.bind("*", 3000)
 while true do
   local client = server:accept()
   if client then
-    handle_client(client)
+    local co = coroutine.create(handle_coroutine)
+    coroutine.resume(co, client)
   end
 end
-
-ping()
