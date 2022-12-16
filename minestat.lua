@@ -1,5 +1,9 @@
+#!/usr/bin/env lua
+
 local socket = require "socket"
 local json = require "json"
+
+local bit = bit32 or require "bit"
 
 local format = [[
 Server is up and running!
@@ -15,7 +19,7 @@ local function read_varint(client)
   local byte = 0x80
   while byte >= 0x80 do
     byte = client:receive(1):byte()
-    value = value + ((byte & 0x7f) << shift)
+    value = value + bit.lshift(bit.band(byte, 0x7F), shift)
     shift = shift + 7
   end
   return value

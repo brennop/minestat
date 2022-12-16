@@ -2,9 +2,9 @@
 
 ## Requirements
 
-- Lua 5.3+ (for bitwise operators)
+- Lua 5.2+ or luajit
 - Lua Socket
 
 ## Running
 
-`lua main.lua`
+Just run the `minetest.lua` file.
