@@ -15,7 +15,7 @@ local function read_varint(client)
   local byte = 0x80
   while byte >= 0x80 do
     byte = client:receive(1):byte()
-    value = value + bit32.lshift(bit32.band(byte, 0x7f), shift)
+    value = value + ((byte & 0x7f) << shift)
     shift = shift + 7
   end
   return value
