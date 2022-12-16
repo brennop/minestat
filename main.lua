@@ -106,6 +106,8 @@ local function handle_coroutine(client)
 end
 
 local server = socket.bind("*", 3000)
+print("Listening on port 3000")
+
 while true do
   local client = server:accept()
   if client then
