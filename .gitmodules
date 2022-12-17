@@ -1,0 +1,3 @@
+[submodule "http.lua"]
+	path = http
+	url = https://github.com/brennop/http.lua
